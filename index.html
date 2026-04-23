@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מעקב הוצאות — הפועלים</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg:#f5f0e8; --ink:#1a1611; --ink2:#5a5040;
+    --card:#fdfaf5; --border:#d8d0c0;
+    --accent:#c8552a; --green:#3a6b4a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:'Heebo',sans-serif;min-height:100vh;direction:rtl;}
+
+  /* HEADER */
+  header{
+    padding:24px 40px 20px;border-bottom:1.5px solid var(--border);
+    display:flex;align-items:center;gap:16px;background:var(--card);flex-wrap:wrap;
+  }
+  header h1{font-size:1.6rem;font-weight:300;letter-spacing:0;}
+  header h1 em{font-style:normal;color:var(--accent);font-weight:500;}
+  .date-controls{display:flex;align-items:center;gap:8px;margin-right:auto;flex-wrap:wrap;}
+  .date-controls label{font-size:0.72rem;color:var(--ink2);}
+  .dc-select{
+    font-family:'Heebo',sans-serif;font-size:0.75rem;
+    padding:6px 10px;background:var(--bg);border:1px solid var(--border);color:var(--ink);cursor:pointer;
+  }
+  .dc-select:focus{outline:none;border-color:var(--accent);}
+  .custom-range{display:none;align-items:center;gap:6px;}
+  .custom-range input{
+    font-family:'Heebo',sans-serif;font-size:0.72rem;
+    padding:5px 8px;background:var(--bg);border:1px solid var(--border);color:var(--ink);
+  }
+  .custom-range input:focus{outline:none;border-color:var(--accent);}
+  .custom-range span{font-size:0.72rem;color:var(--ink2);}
+
+  /* UPLOAD */
+  #upload-section{display:flex;justify-content:center;padding:60px 20px;}
+  #upload-zone{
+    max-width:500px;width:100%;border:2px dashed var(--border);border-radius:4px;
+    padding:56px 40px;text-align:center;cursor:pointer;
+    transition:border-color 0.2s,background 0.2s;background:var(--card);
+  }
+  #upload-zone:hover,#upload-zone.drag-over{border-color:var(--accent);background:#fff9f5;}
+  #upload-zone .icon{font-size:2.5rem;margin-bottom:16px;}
+  #upload-zone h2{font-size:1.3rem;font-weight:300;margin-bottom:8px;}
+  #upload-zone p{font-size:0.8rem;color:var(--ink2);line-height:1.6;}
+  #upload-zone input{display:none;}
+  .upload-btn{
+    margin-top:20px;display:inline-block;padding:10px 24px;
+    background:var(--accent);color:white;font-family:'Heebo',sans-serif;
+    font-size:0.8rem;border:none;cursor:pointer;
+  }
+
+  /* DASHBOARD */
+  #dashboard{display:none;}
+  .summary-strip{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1.5px solid var(--border);}
+  .summary-card{padding:22px 32px;border-left:1.5px solid var(--border);}
+  .summary-card:last-child{border-left:none;}
+  .summary-card .label{font-size:0.7rem;color:var(--ink2);margin-bottom:6px;}
+  .summary-card .amount{font-size:1.9rem;font-weight:300;}
+  .amount.in{color:var(--green);}
+  .amount.out{color:var(--accent);}
+
+  /* TABS */
+  .tab-bar{display:flex;background:var(--card);border-bottom:1.5px solid var(--border);}
+  .tab-btn{
+    font-family:'Heebo',sans-serif;font-size:0.8rem;
+    padding:14px 28px;background:none;border:none;
+    border-bottom:2px solid transparent;cursor:pointer;color:var(--ink2);
+    transition:all 0.15s;margin-bottom:-1.5px;
+  }
+  .tab-btn:hover{color:var(--ink);}
+  .tab-btn.active{color:var(--ink);border-bottom-color:var(--accent);}
+
+  /* GRID */
+  .main-grid{display:grid;grid-template-columns:1fr 1fr;}
+  .panel{padding:28px 32px;border-left:1.5px solid var(--border);border-bottom:1.5px solid var(--border);}
+  .panel:nth-child(2n){border-left:none;}
+  .panel-full{grid-column:1/-1;border-left:none;}
+  .panel h3{font-size:1rem;font-weight:400;margin-bottom:20px;}
+  .panel h3 em{font-style:normal;color:var(--accent);}
+
+  /* CATEGORY BARS */
+  .cat-row{display:flex;flex-direction:column;gap:5px;cursor:pointer;border-radius:2px;padding:4px 6px;margin:0 -6px;transition:background 0.15s;}
+  .cat-row:hover{background:rgba(200,85,42,0.07);}
+  .cat-row:hover .cat-name{color:var(--accent);}
+  .cat-row.inc-row:hover{background:rgba(58,107,74,0.07);}
+  .cat-row.inc-row:hover .cat-name{color:var(--green);}
+  .cat-row:hover .drill-hint{opacity:1;}
+  .cat-meta{display:flex;justify-content:space-between;align-items:baseline;}
+  .cat-name{font-size:0.78rem;}
+  .cat-amount{font-size:0.78rem;color:var(--ink2);}
+  .drill-hint{opacity:0;font-size:0.65rem;color:var(--accent);margin-right:4px;transition:opacity 0.15s;}
+  .inc-row .drill-hint{color:var(--green);}
+  .bar-track{height:5px;background:var(--border);border-radius:2px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:2px;transition:width 0.8s cubic-bezier(0.16,1,0.3,1);}
+  .s0{background:#c8552a}.s1{background:#3a6b4a}.s2{background:#e8a030}.s3{background:#4a6a9a}
+  .s4{background:#9a4a7a}.s5{background:#5a8a7a}.s6{background:#8a6a3a}.s7{background:#6a5a9a}
+  .i0{background:#3a6b4a}.i1{background:#5a9a6a}.i2{background:#2a5a3a}.i3{background:#7aba8a}
+
+  /* FLOW CHART */
+  .month-bars{display:flex;align-items:flex-end;gap:6px;height:160px;padding-bottom:24px;border-bottom:1px solid var(--border);}
+  .month-group{flex:1;display:flex;gap:3px;align-items:flex-end;position:relative;cursor:default;}
+  .bar-in,.bar-out{flex:1;border-radius:2px 2px 0 0;min-height:3px;transition:height 0.7s cubic-bezier(0.16,1,0.3,1);}
+  .bar-in{background:var(--green);opacity:0.85;}
+  .bar-out{background:var(--accent);opacity:0.85;}
+  .month-group:hover .bar-in,.month-group:hover .bar-out{opacity:1;}
+  .chart-tooltip{
+    display:none;position:absolute;bottom:calc(100% + 10px);
+    right:50%;transform:translateX(50%);
+    background:var(--ink);color:var(--bg);
+    padding:9px 13px;font-size:0.7rem;line-height:1.9;
+    white-space:nowrap;z-index:20;pointer-events:none;
+  }
+  .chart-tooltip::after{
+    content:'';position:absolute;top:100%;right:50%;transform:translateX(50%);
+    border:5px solid transparent;border-top-color:var(--ink);
+  }
+  .month-group:hover .chart-tooltip{display:block;}
+  .tip-lbl{font-size:0.65rem;color:#a09880;}
+  .tip-in{color:#7ac99a;}
+  .tip-out{color:#e8917a;}
+  .tip-net{border-top:1px solid #383028;padding-top:3px;margin-top:2px;}
+  .month-labels{display:flex;gap:6px;margin-top:8px;}
+  .month-label{flex:1;font-size:0.62rem;text-align:center;color:var(--ink2);}
+  .chart-legend{display:flex;gap:16px;margin-top:14px;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:0.7rem;color:var(--ink2);}
+  .legend-dot{width:8px;height:8px;border-radius:1px;}
+
+  /* TREND CHART */
+  .trend-select-row{display:flex;align-items:baseline;gap:16px;margin-bottom:20px;flex-wrap:wrap;}
+  .trend-select-row h3{margin-bottom:0;}
+  .trend-bar{flex:1;border-radius:2px 2px 0 0;min-height:3px;background:var(--accent);opacity:0.85;transition:height 0.7s cubic-bezier(0.16,1,0.3,1);}
+  .trend-bar:hover{opacity:1;}
+  .no-trend{font-size:0.78rem;color:var(--ink2);padding:32px 0;}
+
+  /* TX PANEL */
+  .tx-panel-header{display:flex;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;}
+  .tx-panel-header h3{font-size:1rem;font-weight:400;}
+  .hdr-btns{display:flex;gap:8px;margin-right:auto;flex-wrap:wrap;}
+  .ghost-btn{
+    padding:6px 14px;background:none;border:1px solid var(--border);
+    font-family:'Heebo',sans-serif;font-size:0.72rem;
+    cursor:pointer;color:var(--ink2);transition:all 0.15s;white-space:nowrap;
+  }
+  .ghost-btn:hover{border-color:var(--ink);color:var(--ink);}
+
+  .tx-filters{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;align-items:center;}
+  .filter-btn{
+    padding:4px 12px;font-family:'Heebo',sans-serif;font-size:0.72rem;
+    background:none;border:1px solid var(--border);cursor:pointer;color:var(--ink2);transition:all 0.15s;
+  }
+  .filter-btn.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+  .filter-btn.green-active{background:var(--green) !important;border-color:var(--green) !important;}
+  .filter-btn.red-active{background:var(--accent) !important;border-color:var(--accent) !important;}
+  .filter-sep{width:1px;height:20px;background:var(--border);margin:0 4px;flex-shrink:0;}
+
+  .tx-table{width:100%;border-collapse:collapse;}
+  .tx-table th{
+    font-size:0.65rem;color:var(--ink2);text-align:right;padding:0 0 10px;
+    border-bottom:1px solid var(--border);font-weight:400;
+    cursor:pointer;user-select:none;white-space:nowrap;
+  }
+  .tx-table th:hover{color:var(--ink);}
+  .tx-table td{padding:10px 0;border-bottom:1px solid var(--border);font-size:0.78rem;vertical-align:middle;}
+  .tx-table tr:last-child td{border-bottom:none;}
+  .tx-date{color:var(--ink2);white-space:nowrap;padding-left:16px;min-width:90px;}
+  .tx-desc{max-width:260px;padding-left:12px;}
+  .tx-amt{text-align:left;font-size:0.8rem;white-space:nowrap;}
+  .tx-amt.credit{color:var(--green);}
+  .tx-amt.debit{color:var(--accent);}
+  .more-row td{padding:14px 0 2px;}
+  .more-btn{
+    font-family:'Heebo',sans-serif;font-size:0.7rem;color:var(--ink2);
+    background:none;border:1px solid var(--border);cursor:pointer;padding:6px 16px;transition:all 0.15s;
+  }
+  .more-btn:hover{border-color:var(--ink);color:var(--ink);}
+
+  /* CAT EDITOR */
+  .cat-cell{position:relative;}
+  .cat-tag{
+    display:inline-flex;align-items:center;gap:5px;
+    padding:3px 9px;background:var(--bg);border:1px solid var(--border);
+    font-size:0.68rem;color:var(--ink2);cursor:pointer;transition:border-color 0.15s,color 0.15s;user-select:none;
+  }
+  .cat-tag:hover{border-color:var(--accent);color:var(--accent);}
+  .cat-tag.custom{border-color:#b8a888;color:var(--ink);}
+  .pencil{font-size:0.5rem;opacity:0.45;}
+  .cat-dropdown{
+    position:absolute;top:calc(100% + 4px);right:0;z-index:100;
+    background:var(--card);border:1.5px solid var(--ink);
+    min-width:150px;box-shadow:3px 3px 0 var(--border);
+  }
+  .cat-option{
+    padding:8px 12px;font-size:0.7rem;cursor:pointer;transition:background 0.1s;color:var(--ink);
+  }
+  .cat-option:hover{background:var(--bg);}
+  .cat-option.cur{color:var(--accent);}
+
+  .search-wrap{
+    display:flex;align-items:center;gap:0;margin-bottom:16px;
+    border:1px solid var(--border);background:var(--card);transition:border-color 0.15s;
+  }
+  .search-wrap:focus-within{border-color:var(--ink);}
+  .search-icon{padding:0 10px;font-size:1.1rem;color:var(--ink2);line-height:1;user-select:none;}
+  .search-input{
+    flex:1;padding:8px 0;font-family:'Heebo',sans-serif;font-size:0.78rem;
+    background:none;border:none;color:var(--ink);outline:none;
+  }
+  .search-input::placeholder{color:var(--border);}
+  .search-clear{padding:0 12px;background:none;border:none;cursor:pointer;font-size:0.7rem;color:var(--ink2);transition:color 0.15s;}
+  .search-clear:hover{color:var(--accent);}
+  .search-count{font-size:0.7rem;color:var(--ink2);margin-bottom:12px;margin-top:-8px;}
+  mark{background:#f0d080;color:var(--ink);padding:0 1px;border-radius:1px;}
+
+  .sync-status{font-size:0.68rem;color:var(--ink2);margin-right:auto;align-self:center;transition:color 0.2s;}
+  .sync-status.ok{color:var(--green);}
+  .sync-status.err{color:var(--accent);}
+
+  @media(max-width:640px){
+    header{padding:18px 20px;}
+    .date-controls{margin-right:0;width:100%;}
+    .summary-strip{grid-template-columns:1fr;}
+    .summary-card{border-left:none;border-bottom:1.5px solid var(--border);}
+    .main-grid{grid-template-columns:1fr;}
+    .panel{padding:20px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>מעקב <em>הוצאות</em> — הפועלים</h1>
+  <div class="date-controls" id="date-controls" style="display:none">
+    <label>תקופה</label>
+    <select class="dc-select" id="period-select" onchange="onPeriodChange()">
+      <option value="all">כל הזמן</option>
+    </select>
+    <div class="custom-range" id="custom-range">
+      <input type="date" id="date-from" onchange="applyPeriod()">
+      <span>←</span>
+      <input type="date" id="date-to" onchange="applyPeriod()">
+    </div>
+  </div>
+</header>
+
+<div id="upload-section">
+  <div id="upload-zone">
+    <div class="icon">📂</div>
+    <h2>גרור את קובץ האקסל של הפועלים לכאן</h2>
+    <p>ייצוא מהפועלים → תנועות בחשבון → Excel</p>
+    <p id="cat-load-status" style="margin-top:12px;font-size:0.72rem;color:var(--ink2)"></p>
+    <input type="file" id="file-input" accept=".xlsx,.xls">
+    <br>
+    <button class="upload-btn" onclick="document.getElementById('file-input').click()">בחר קובץ</button>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="summary-strip">
+    <div class="summary-card">
+      <div class="label">הכנסות</div>
+      <div class="amount in" id="total-in">₪0</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">הוצאות</div>
+      <div class="amount out" id="total-out">₪0</div>
+    </div>
+    <div class="summary-card">
+      <div class="label">מאזן</div>
+      <div class="amount" id="total-net">₪0</div>
+    </div>
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-btn-overview" onclick="switchTab('overview')">סקירה</button>
+    <button class="tab-btn" id="tab-btn-trends" onclick="switchTab('trends')">מגמות</button>
+  </div>
+
+  <!-- OVERVIEW TAB -->
+  <div id="tab-overview">
+    <div class="main-grid">
+
+      <div class="panel">
+        <h3>הוצאות לפי <em>קטגוריה</em></h3>
+        <div id="cat-spend"></div>
+      </div>
+
+      <div class="panel">
+        <h3>הכנסות לפי <em>קטגוריה</em></h3>
+        <div id="cat-income"></div>
+      </div>
+
+      <div class="panel panel-full" id="tx-panel">
+        <div class="tx-panel-header">
+          <h3>תנועות</h3>
+          <div class="hdr-btns">
+            <span class="sync-status" id="sync-status"></span>
+            <button class="ghost-btn" id="trend-shortcut" style="display:none" onclick="drillIntoTrend(activeCat)">↗ מגמה</button>
+            <button class="ghost-btn" onclick="doReset()">↑ העלה קובץ חדש</button>
+          </div>
+        </div>
+        <div class="tx-filters" id="tx-filters"></div>
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input type="text" id="tx-search" class="search-input" placeholder="חיפוש תנועות…" oninput="onSearch(this.value)">
+          <button class="search-clear" id="search-clear" onclick="clearSearch()" style="display:none">✕</button>
+        </div>
+        <div class="search-count" id="search-result-count" style="display:none"></div>
+        <table class="tx-table">
+          <thead>
+            <tr>
+              <th id="th-date" onclick="setSortCol('date')">תאריך ↓</th>
+              <th id="th-desc" onclick="setSortCol('desc')">פעולה</th>
+              <th id="th-category" onclick="setSortCol('category')">קטגוריה</th>
+              <th id="th-amount" style="text-align:left" onclick="setSortCol('amount')">סכום</th>
+            </tr>
+          </thead>
+          <tbody id="tx-body"></tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TRENDS TAB -->
+  <div id="tab-trends" style="display:none">
+    <div class="main-grid">
+
+      <div class="panel panel-full">
+        <h3>תזרים <em>חודשי</em></h3>
+        <p style="font-size:0.7rem;color:var(--ink2);margin:-12px 0 20px;">הרחב את התקופה כדי להשוות בין חודשים.</p>
+        <div class="month-bars" id="month-bars"></div>
+        <div class="month-labels" id="month-labels"></div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>הכנסות</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>הוצאות</div>
+        </div>
+      </div>
+
+      <div class="panel panel-full">
+        <div class="trend-select-row">
+          <h3>מגמת הוצאות — <em id="trend-cat-label">בחר קטגוריה</em></h3>
+          <select class="dc-select" id="trend-cat-select" onchange="onTrendCatChange()">
+            <option value="">בחר קטגוריה…</option>
+          </select>
+        </div>
+        <p style="font-size:0.7rem;color:var(--ink2);margin:-12px 0 20px;">הרחב את התקופה כדי להשוות בין חודשים.</p>
+        <div class="month-bars" id="cat-trend-bars" style="height:140px"></div>
+        <div class="month-labels" id="cat-trend-labels"></div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─── קבועים ───────────────────────────────────────────────────────────────────
+const ALL_CATS = [
+  'מזון וסופר','אוכל בחוץ','תחבורה','קניות','מנויים',
+  'בריאות','ילדים','בית','הכנסה','חיסכון','בידור','נסיעות','אחר'
+];
+const STORE_KEY    = 'hapoalim_cat_v1';
+const TX_STORE_KEY = 'hapoalim_tx_v1';
+const PAGE_SIZE    = 50;
+const JB_BIN = 'JSONBIN_BIN_ID';
+const JB_KEY = 'JSONBIN_ACCESS_KEY';
+
+// ─── מצב ─────────────────────────────────────────────────────────────────────
+var allTx        = [];
+var catOverrides = {};
+var activeCat    = 'הכל';
+var activeDir    = 'all';
+var activeSearch = '';
+var shownCount   = PAGE_SIZE;
+var openDrop     = null;
+var sortCol      = 'date';
+var sortDir      = 'desc';
+var activeTab    = 'overview';
+var trendCat     = '';
+
+try { catOverrides = JSON.parse(localStorage.getItem(STORE_KEY) || '{}'); } catch(e) {}
+
+// שחזור תנועות מהפעלה קודמת
+(function restoreTxs() {
+  try {
+    var saved = localStorage.getItem(TX_STORE_KEY);
+    if (!saved) return;
+    var txs = JSON.parse(saved);
+    if (!txs || !txs.length) return;
+    allTx = txs;
+    buildPeriodPicker(txs);
+    renderDashboard(getViewTxs());
+  } catch(e) {}
+})();
+
+function persistOverrides() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(catOverrides)); } catch(e) {}
+}
+
+// טעינת קטגוריות מ-JSONBin
+(function loadCategories() {
+  if (JB_BIN === 'JSONBIN_BIN_ID') return; // לא הוגדר עדיין
+  fetch('https://api.jsonbin.io/v3/b/' + JB_BIN + '/latest', {
+    headers: { 'X-Access-Key': JB_KEY }
+  })
+  .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+  .then(function(res) {
+    var data = res.record;
+    if (typeof data !== 'object' || Array.isArray(data)) return;
+    var keys = Object.keys(data);
+    for (var i = 0; i < keys.length; i++) catOverrides[keys[i]] = data[keys[i]];
+    persistOverrides();
+    var el = document.getElementById('cat-load-status');
+    if (el && keys.length > 0) { el.textContent = '✓ נטענו ' + keys.length + ' קטגוריות'; el.style.color = 'var(--green)'; }
+  })
+  .catch(function() {});
+})();
+
+// ─── העלאת קובץ ──────────────────────────────────────────────────────────────
+var uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', function(ev) { ev.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', function() { uploadZone.classList.remove('drag-over'); });
+uploadZone.addEventListener('drop', function(ev) {
+  ev.preventDefault(); uploadZone.classList.remove('drag-over');
+  var f = ev.dataTransfer.files[0]; if (f) readFile(f);
+});
+document.getElementById('file-input').addEventListener('change', function(ev) {
+  var f = ev.target.files[0]; if (f) readFile(f);
+});
+
+function readFile(file) {
+  var reader = new FileReader();
+  reader.onload = function(ev) { parseExcel(ev.target.result); };
+  reader.onerror = function() { alert('לא ניתן לקרוא את הקובץ.'); };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── פרסור Excel הפועלים ─────────────────────────────────────────────────────
+function parseExcel(buffer) {
+  try {
+    var wb = XLSX.read(buffer, { type: 'array', cellDates: true });
+    var ws = wb.Sheets[wb.SheetNames[0]];
+    var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+    // מציאת שורת הנתונים — מתחיל אחרי שורת הכותרת שמכילה "תאריך"
+    var dataStart = -1;
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      for (var j = 0; j < row.length; j++) {
+        if (row[j] && String(row[j]).trim() === 'תאריך') { dataStart = i + 1; break; }
+      }
+      if (dataStart > 0) break;
+    }
+    if (dataStart < 0) { alert('לא נמצאה עמודת תאריך בקובץ. האם זה דוח הפועלים?'); return; }
+
+    // מיפוי עמודות לפי כותרת
+    var headerRow = rows[dataStart - 1];
+    var colMap = {};
+    for (var j = 0; j < headerRow.length; j++) {
+      var h = headerRow[j] ? String(headerRow[j]).trim() : '';
+      if (h === 'תאריך')     colMap.date    = j;
+      if (h === 'הפעולה')    colMap.op      = j;
+      if (h === 'פרטים')     colMap.details = j;
+      if (h === 'חובה')      colMap.debit   = j;
+      if (h === 'זכות')      colMap.credit  = j;
+      if (h === 'לטובת')     colMap.for_who = j;
+      if (h === 'עבור')      colMap.for_what= j;
+    }
+
+    var txs = [];
+    for (var i = dataStart; i < rows.length; i++) {
+      var row = rows[i];
+      if (!row || !row[colMap.date]) continue;
+
+      // תאריך
+      var rawDate = row[colMap.date];
+      var dateStr = '';
+      if (rawDate instanceof Date) {
+        dateStr = rawDate.toISOString().slice(0, 10);
+      } else if (typeof rawDate === 'string') {
+        // DD/MM/YYYY → YYYY-MM-DD
+        var parts = rawDate.split('/');
+        if (parts.length === 3) dateStr = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+        else dateStr = rawDate.slice(0, 10);
+      } else continue;
+
+      // סכום — חובה שלילי, זכות חיובי
+      var debit  = parseFloat(row[colMap.debit])  || 0;
+      var credit = parseFloat(row[colMap.credit]) || 0;
+      var amount = credit > 0 ? credit : -debit;
+      if (amount === 0) continue;
+
+      // תיאור — שילוב של שדות
+      var op      = row[colMap.op]      ? String(row[colMap.op]).trim()      : '';
+      var details = row[colMap.details] ? String(row[colMap.details]).trim() : '';
+      var forWho  = row[colMap.for_who] ? String(row[colMap.for_who]).trim() : '';
+      var forWhat = row[colMap.for_what]? String(row[colMap.for_what]).trim(): '';
+      var desc = op;
+      if (details && details !== op) desc += ' — ' + details;
+      else if (forWho)  desc += ' — ' + forWho;
+      else if (forWhat) desc += ' — ' + forWhat;
+
+      var dir = amount > 0 ? 'in' : 'out';
+      var key = op.toLowerCase().trim() + '|' + dir;
+      var category = catOverrides[key] || guessCategory(op, details);
+
+      txs.push({ date: dateStr, desc: desc, op: op, amount: amount, category: category, currency: 'ILS', key: key });
+    }
+
+    if (txs.length === 0) { alert('לא נמצאו תנועות בקובץ.'); return; }
+
+    allTx = txs;
+    activeCat = 'הכל'; shownCount = PAGE_SIZE;
+    try { localStorage.setItem(TX_STORE_KEY, JSON.stringify(txs)); } catch(e) {}
+    buildPeriodPicker(txs);
+    renderDashboard(getViewTxs());
+
+  } catch(err) {
+    alert('שגיאה בפרסור הקובץ: ' + err.message);
+    console.error(err);
+  }
+}
+
+// ─── ניחוש קטגוריות בעברית ──────────────────────────────────────────────────
+function guessCategory(op, details) {
+  var t = (op + ' ' + details).toLowerCase();
+  if (/משכורת|שכר|פנסיה|גמלה|קצבה|ביטוח לאומי|הכנסה|זיכוי מ/.test(t)) return 'הכנסה';
+  if (/סופרמרקט|שופרסל|רמי לוי|מגה|ויקטורי|יינות|אושר עד|מחסני|סופר|קרפור|מאחסן/.test(t)) return 'מזון וסופר';
+  if (/מסעדה|קפה|בית קפה|אוכל|פיצה|סושי|מקדונלד|בורגר|וולט|wolt|10bis|מישמיש/.test(t)) return 'אוכל בחוץ';
+  if (/דלק|תחנת דלק|רכבת|אוטובוס|מונית|גט|יאנגו|חניה|טסט|ביטוח רכב|leumi card/.test(t)) return 'תחבורה';
+  if (/כאל|מקס|ויזה|אשראי|לאומי קארד/.test(t)) return 'קניות';
+  if (/נטפליקס|ספוטיפיי|חשבון|מנוי|אינטרנט|hot|yes|partner|cellcom|019/.test(t)) return 'מנויים';
+  if (/רופא|בית חולים|ביטוח בריאות|קופת חולים|תרופות|מכבי|כללית|לאומית/.test(t)) return 'בריאות';
+  if (/גן|צהרון|בית ספר|חינוך|ילד|טיפול|שמרטף|צעצוע/.test(t)) return 'ילדים';
+  if (/שכר דירה|ועד בית|חשמל|מים|גז|ארנונה|משכנתא|ביטוח בית|תיקון/.test(t)) return 'בית';
+  if (/קולנוע|תיאטרון|ספורט|כרטיס|בידור/.test(t)) return 'בידור';
+  if (/טיסה|מלון|airbnb|booking|נסיעה לחו"ל|ויזה לנסיעה/.test(t)) return 'נסיעות';
+  if (/חיסכון|קופת גמל|קרן השתלמות|פיקדון/.test(t)) return 'חיסכון';
+  return 'אחר';
+}
+
+// ─── בורר תקופה ───────────────────────────────────────────────────────────────
+function buildPeriodPicker(txs) {
+  var seen = {};
+  for (var i = 0; i < txs.length; i++) seen[txs[i].date.slice(0,7)] = true;
+  var months = Object.keys(seen).sort().reverse();
+
+  var sel = document.getElementById('period-select');
+  sel.innerHTML = '<option value="all">כל הזמן</option>' +
+    '<option value="3m">3 חודשים אחרונים</option>' +
+    '<option value="6m">6 חודשים אחרונים</option>' +
+    '<option value="custom">טווח מותאם…</option>';
+  for (var m = 0; m < months.length; m++) {
+    var parts = months[m].split('-');
+    var label = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleString('he', {month:'long', year:'numeric'});
+    var opt = document.createElement('option');
+    opt.value = months[m]; opt.textContent = label;
+    sel.appendChild(opt);
+  }
+
+  var now = new Date();
+  var currentMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  if (seen[currentMonth]) sel.value = currentMonth;
+
+  document.getElementById('date-controls').style.display = 'flex';
+}
+
+function onPeriodChange() {
+  var val = document.getElementById('period-select').value;
+  document.getElementById('custom-range').style.display = val === 'custom' ? 'flex' : 'none';
+  activeCat = 'הכל'; activeDir = 'all'; activeSearch = ''; shownCount = PAGE_SIZE;
+  var s = document.getElementById('tx-search'); if (s) { s.value = ''; document.getElementById('search-clear').style.display='none'; }
+  renderDashboard(getViewTxs());
+}
+
+function applyPeriod() {
+  activeCat = 'הכל'; activeDir = 'all'; activeSearch = ''; shownCount = PAGE_SIZE;
+  var s = document.getElementById('tx-search'); if (s) { s.value = ''; document.getElementById('search-clear').style.display='none'; }
+  renderDashboard(getViewTxs());
+}
+
+function getViewTxs() {
+  var val = document.getElementById('period-select').value;
+  if (val === 'all') return allTx;
+  if (val === '3m' || val === '6m') {
+    var months = val === '3m' ? 3 : 6;
+    var cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - months);
+    var from = cutoff.toISOString().slice(0, 10);
+    return allTx.filter(function(t) { return t.date.slice(0, 10) >= from; });
+  }
+  if (val === 'custom') {
+    var from = document.getElementById('date-from').value;
+    var to   = document.getElementById('date-to').value;
+    return allTx.filter(function(t) { var d = t.date.slice(0,10); return (!from || d >= from) && (!to || d <= to); });
+  }
+  return allTx.filter(function(t) { return t.date.slice(0,7) === val; });
+}
+
+// ─── דשבורד ──────────────────────────────────────────────────────────────────
+function renderDashboard(txs) {
+  var totalIn = 0, totalOut = 0;
+  for (var i = 0; i < txs.length; i++) {
+    if (txs[i].amount > 0) totalIn  += txs[i].amount;
+    else                   totalOut += txs[i].amount;
+  }
+  var net = totalIn + totalOut;
+
+  document.getElementById('total-in').textContent  = fmtAmt(totalIn);
+  document.getElementById('total-out').textContent = fmtAmt(Math.abs(totalOut));
+  var netEl = document.getElementById('total-net');
+  netEl.textContent = (net >= 0 ? '+' : '–') + fmtAmt(Math.abs(net));
+  netEl.style.color = net >= 0 ? 'var(--green)' : 'var(--accent)';
+
+  renderSpendCats(txs);
+  renderIncomeCats(txs);
+  renderFlow(txs);
+  renderFilters(txs);
+  renderTxs(applyFilters(txs));
+  populateTrendSelect(txs);
+  renderCategoryTrend(txs);
+
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+}
+
+// ─── הוצאות לפי קטגוריה ──────────────────────────────────────────────────────
+function renderSpendCats(txs) {
+  var bycat = {};
+  for (var i = 0; i < txs.length; i++) {
+    var t = txs[i];
+    if (t.amount < 0 && t.category !== 'הכנסה' && t.category !== 'חיסכון') {
+      bycat[t.category] = (bycat[t.category] || 0) + Math.abs(t.amount);
+    }
+  }
+  var entries = sortEntries(bycat);
+  var max = entries.length ? entries[0][1] : 1;
+  var html = '';
+  if (!entries.length) { html = '<div style="font-size:0.78rem;color:var(--ink2)">אין נתוני הוצאות לתקופה זו</div>'; }
+  else {
+    for (var i = 0; i < entries.length; i++) {
+      var cat = entries[i][0], amt = entries[i][1];
+      var pct = (amt / max * 100).toFixed(1);
+      html += '<div class="cat-row" onclick="drillInto(\'' + escAttr(cat) + '\',\'out\')">' +
+        '<div class="cat-meta">' +
+          '<span class="cat-name">' + escHtml(cat) + '</span>' +
+          '<span class="cat-amount">' + fmtAmt(amt) + ' <span class="drill-hint">←</span></span>' +
+        '</div>' +
+        '<div class="bar-track"><div class="bar-fill s' + (i % 8) + '" style="width:' + pct + '%"></div></div>' +
+      '</div>';
+    }
+  }
+  document.getElementById('cat-spend').innerHTML = html;
+}
+
+// ─── הכנסות לפי קטגוריה ──────────────────────────────────────────────────────
+function renderIncomeCats(txs) {
+  var bycat = {};
+  for (var i = 0; i < txs.length; i++) {
+    var t = txs[i];
+    if (t.amount > 0) bycat[t.category] = (bycat[t.category] || 0) + t.amount;
+  }
+  var entries = sortEntries(bycat);
+  var max = entries.length ? entries[0][1] : 1;
+  var html = '';
+  if (!entries.length) { html = '<div style="font-size:0.78rem;color:var(--ink2)">אין נתוני הכנסות לתקופה זו</div>'; }
+  else {
+    for (var i = 0; i < entries.length; i++) {
+      var cat = entries[i][0], amt = entries[i][1];
+      var pct = (amt / max * 100).toFixed(1);
+      html += '<div class="cat-row inc-row" onclick="drillInto(\'' + escAttr(cat) + '\',\'in\')">' +
+        '<div class="cat-meta">' +
+          '<span class="cat-name">' + escHtml(cat) + '</span>' +
+          '<span class="cat-amount">' + fmtAmt(amt) + ' <span class="drill-hint">←</span></span>' +
+        '</div>' +
+        '<div class="bar-track"><div class="bar-fill i' + (i % 4) + '" style="width:' + pct + '%"></div></div>' +
+      '</div>';
+    }
+  }
+  document.getElementById('cat-income').innerHTML = html;
+}
+
+// ─── גרף תזרים ────────────────────────────────────────────────────────────────
+function renderFlow(txs) {
+  var months = {};
+  for (var i = 0; i < txs.length; i++) {
+    var t = txs[i]; var m = t.date.slice(0, 7);
+    if (!months[m]) months[m] = { in: 0, out: 0 };
+    if (t.amount > 0) months[m].in += t.amount; else months[m].out += Math.abs(t.amount);
+  }
+  var keys = Object.keys(months).sort();
+  if (!keys.length) { document.getElementById('month-bars').innerHTML = ''; document.getElementById('month-labels').innerHTML = ''; return; }
+  var maxVal = 1;
+  for (var k = 0; k < keys.length; k++) { var v = months[keys[k]]; if (v.in > maxVal) maxVal = v.in; if (v.out > maxVal) maxVal = v.out; }
+  var H = 134, barsHtml = '', labelsHtml = '';
+  for (var k = 0; k < keys.length; k++) {
+    var key = keys[k], v = months[key];
+    var parts = key.split('-');
+    var lbl = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleString('he', {month:'short'});
+    var net = v.in - v.out;
+    var inH = Math.round(v.in / maxVal * H), outH = Math.round(v.out / maxVal * H);
+    var netColor = net >= 0 ? '#7ac99a' : '#e8917a';
+    var netSign = net >= 0 ? '+' : '–';
+    barsHtml += '<div class="month-group">' +
+      '<div class="bar-in" style="height:' + inH + 'px"></div>' +
+      '<div class="bar-out" style="height:' + outH + 'px"></div>' +
+      '<div class="chart-tooltip">' +
+        '<div class="tip-lbl">' + lbl + ' ' + parts[0] + '</div>' +
+        '<div class="tip-in">↑ הכנסות &nbsp;' + fmtAmt(v.in) + '</div>' +
+        '<div class="tip-out">↓ הוצאות &nbsp;' + fmtAmt(v.out) + '</div>' +
+        '<div class="tip-net" style="color:' + netColor + '">' + netSign + ' מאזן &nbsp;' + fmtAmt(Math.abs(net)) + '</div>' +
+      '</div></div>';
+    labelsHtml += '<div class="month-label">' + lbl + '</div>';
+  }
+  document.getElementById('month-bars').innerHTML   = barsHtml;
+  document.getElementById('month-labels').innerHTML = labelsHtml;
+}
+
+// ─── טאבים ───────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  activeTab = tab;
+  document.getElementById('tab-overview').style.display = tab === 'overview' ? 'block' : 'none';
+  document.getElementById('tab-trends').style.display   = tab === 'trends'   ? 'block' : 'none';
+  document.getElementById('tab-btn-overview').className = 'tab-btn' + (tab === 'overview' ? ' active' : '');
+  document.getElementById('tab-btn-trends').className   = 'tab-btn' + (tab === 'trends'   ? ' active' : '');
+}
+
+function drillIntoTrend(cat) {
+  trendCat = cat;
+  switchTab('trends');
+  var sel = document.getElementById('trend-cat-select'); if (sel) sel.value = cat;
+  var lbl = document.getElementById('trend-cat-label'); if (lbl) lbl.textContent = cat;
+  var base = getViewTxs();
+  renderCategoryTrend(base);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function onTrendCatChange() {
+  trendCat = document.getElementById('trend-cat-select').value;
+  var lbl = document.getElementById('trend-cat-label'); if (lbl) lbl.textContent = trendCat || 'בחר קטגוריה';
+  renderCategoryTrend(getViewTxs());
+}
+
+function populateTrendSelect(txs) {
+  var seen = {};
+  for (var i = 0; i < txs.length; i++) if (txs[i].amount < 0) seen[txs[i].category] = true;
+  var cats = Object.keys(seen).sort();
+  var sel = document.getElementById('trend-cat-select');
+  var prev = trendCat || sel.value;
+  sel.innerHTML = '<option value="">בחר קטגוריה…</option>';
+  for (var i = 0; i < cats.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = cats[i]; opt.textContent = cats[i];
+    if (cats[i] === prev) opt.selected = true;
+    sel.appendChild(opt);
+  }
+  if (prev && seen[prev]) trendCat = prev;
+}
+
+function renderCategoryTrend(txs) {
+  var cat = trendCat || document.getElementById('trend-cat-select').value;
+  var barsEl = document.getElementById('cat-trend-bars'), labelsEl = document.getElementById('cat-trend-labels');
+  if (!cat) { barsEl.innerHTML = '<div class="no-trend">בחר קטגוריה למעלה כדי לראות את המגמה החודשית.</div>'; labelsEl.innerHTML = ''; return; }
+  var months = {};
+  for (var i = 0; i < txs.length; i++) {
+    var t = txs[i];
+    if (t.category !== cat || t.amount >= 0) continue;
+    var m = t.date.slice(0, 7);
+    months[m] = (months[m] || 0) + Math.abs(t.amount);
+  }
+  var keys = Object.keys(months).sort();
+  if (!keys.length) { barsEl.innerHTML = '<div class="no-trend">אין הוצאות בקטגוריה <strong>' + escHtml(cat) + '</strong> לתקופה זו.</div>'; labelsEl.innerHTML = ''; return; }
+  var maxVal = 0;
+  for (var k = 0; k < keys.length; k++) if (months[keys[k]] > maxVal) maxVal = months[keys[k]];
+  var H = 114, barsHtml = '', labelsHtml = '';
+  for (var k = 0; k < keys.length; k++) {
+    var key = keys[k], amt = months[key];
+    var parts = key.split('-');
+    var lbl = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1).toLocaleString('he', {month:'short'});
+    var h = Math.round(amt / maxVal * H);
+    barsHtml += '<div class="month-group"><div class="trend-bar" style="height:' + h + 'px"></div>' +
+      '<div class="chart-tooltip"><div class="tip-lbl">' + lbl + ' ' + parts[0] + '</div><div class="tip-out">' + fmtAmt(amt) + '</div></div></div>';
+    labelsHtml += '<div class="month-label">' + lbl + '</div>';
+  }
+  barsEl.innerHTML = barsHtml; labelsEl.innerHTML = labelsHtml;
+}
+
+// ─── פילטרים ─────────────────────────────────────────────────────────────────
+function renderFilters(txs) {
+  var seen = { 'הכל': true }, cats = ['הכל'];
+  for (var i = 0; i < txs.length; i++) { if (!seen[txs[i].category]) { seen[txs[i].category] = true; cats.push(txs[i].category); } }
+  cats.sort(function(a,b) { if(a==='הכל') return -1; if(b==='הכל') return 1; return a.localeCompare(b,'he'); });
+
+  var dirHtml =
+    '<button class="filter-btn' + (activeDir==='all'?' active':'') + '" onclick="filterByDir(\'all\')">הכל</button>' +
+    '<button class="filter-btn' + (activeDir==='in' ?' active green-active':'') + '" onclick="filterByDir(\'in\')">↑ הכנסות</button>' +
+    '<button class="filter-btn' + (activeDir==='out'?' active red-active':'') + '" onclick="filterByDir(\'out\')">↓ הוצאות</button>' +
+    '<span class="filter-sep"></span>';
+
+  var catHtml = '';
+  for (var i = 0; i < cats.length; i++) {
+    var c = cats[i];
+    catHtml += '<button class="filter-btn' + (c === activeCat ? ' active' : '') + '" onclick="filterByCat(\'' + escAttr(c) + '\')">' + escHtml(c) + '</button>';
+  }
+  document.getElementById('tx-filters').innerHTML = dirHtml + catHtml;
+
+  var shortcut = document.getElementById('trend-shortcut');
+  if (shortcut) shortcut.style.display = (activeCat !== 'הכל') ? 'inline-block' : 'none';
+}
+
+function filterByDir(dir) {
+  activeDir = dir; shownCount = PAGE_SIZE;
+  var base = getViewTxs(); renderFilters(base); renderTxs(applyFilters(base));
+}
+function filterByCat(cat) {
+  activeCat = cat; shownCount = PAGE_SIZE;
+  var base = getViewTxs(); renderFilters(base); renderTxs(applyFilters(base));
+}
+function applyFilters(txs) {
+  var r = txs;
+  if (activeDir === 'in')  r = r.filter(function(t) { return t.amount > 0; });
+  if (activeDir === 'out') r = r.filter(function(t) { return t.amount < 0; });
+  if (activeCat !== 'הכל') r = r.filter(function(t) { return t.category === activeCat; });
+  if (activeSearch) {
+    var q = activeSearch.toLowerCase();
+    r = r.filter(function(t) { return t.desc.toLowerCase().indexOf(q) >= 0 || t.category.toLowerCase().indexOf(q) >= 0 || t.date.indexOf(q) >= 0; });
+  }
+  return r;
+}
+
+function onSearch(val) {
+  activeSearch = val.trim(); shownCount = PAGE_SIZE;
+  document.getElementById('search-clear').style.display = activeSearch ? 'block' : 'none';
+  renderTxs(applyFilters(getViewTxs()));
+}
+function clearSearch() {
+  activeSearch = ''; document.getElementById('tx-search').value = ''; document.getElementById('search-clear').style.display = 'none';
+  shownCount = PAGE_SIZE; renderTxs(applyFilters(getViewTxs()));
+}
+
+function drillInto(cat, dir) {
+  activeCat = cat; activeDir = dir || 'all'; activeSearch = ''; shownCount = PAGE_SIZE;
+  switchTab('overview');
+  var s = document.getElementById('tx-search'); if (s) { s.value = ''; document.getElementById('search-clear').style.display = 'none'; }
+  var base = getViewTxs(); renderFilters(base); renderTxs(applyFilters(base));
+  document.getElementById('tx-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── טבלת תנועות ─────────────────────────────────────────────────────────────
+function setSortCol(col) {
+  if (sortCol === col) { sortDir = sortDir === 'desc' ? 'asc' : 'desc'; }
+  else { sortCol = col; sortDir = (col === 'date' || col === 'amount') ? 'desc' : 'asc'; }
+  renderTxs(applyFilters(getViewTxs()));
+}
+
+function updateSortHeaders() {
+  var cols = ['date','desc','category','amount'], labels = ['תאריך','פעולה','קטגוריה','סכום'];
+  for (var i = 0; i < cols.length; i++) {
+    var th = document.getElementById('th-' + cols[i]); if (!th) continue;
+    var arrow = sortCol === cols[i] ? (sortDir === 'desc' ? ' ↓' : ' ↑') : '';
+    th.textContent = labels[i] + arrow;
+    if (cols[i] === 'amount') th.style.textAlign = 'left';
+  }
+}
+
+function highlight(text, query) {
+  if (!query) return escHtml(text);
+  var idx = text.toLowerCase().indexOf(query.toLowerCase());
+  if (idx < 0) return escHtml(text);
+  return escHtml(text.slice(0, idx)) + '<mark>' + escHtml(text.slice(idx, idx + query.length)) + '</mark>' + escHtml(text.slice(idx + query.length));
+}
+
+function renderTxs(txs) {
+  var sorted = txs.slice().sort(function(a, b) {
+    if (sortCol === 'date')     return sortDir === 'desc' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
+    if (sortCol === 'desc')     { var av = a.desc.toLowerCase(), bv = b.desc.toLowerCase(); return sortDir === 'asc' ? av.localeCompare(bv,'he') : bv.localeCompare(av,'he'); }
+    if (sortCol === 'category') { var av = a.category.toLowerCase(), bv = b.category.toLowerCase(); return sortDir === 'asc' ? av.localeCompare(bv,'he') : bv.localeCompare(av,'he'); }
+    if (sortCol === 'amount')   return sortDir === 'desc' ? b.amount - a.amount : a.amount - b.amount;
+    return 0;
+  });
+  updateSortHeaders();
+  var visible = sorted.slice(0, shownCount);
+  var q = activeSearch;
+
+  var countEl = document.getElementById('search-result-count');
+  if (q && countEl) { countEl.textContent = sorted.length === 0 ? 'אין תוצאות' : sorted.length + ' תוצאות'; countEl.style.display = 'block'; }
+  else if (countEl) { countEl.style.display = 'none'; }
+
+  var html = '';
+  for (var i = 0; i < visible.length; i++) {
+    var t = visible[i];
+    var isCredit = t.amount > 0;
+    var customCls = catOverrides[t.key] ? ' custom' : '';
+    html += '<tr>' +
+      '<td class="tx-date">' + t.date.slice(0,10) + '</td>' +
+      '<td class="tx-desc">' + highlight(t.desc, q) + '</td>' +
+      '<td class="cat-cell" id="cc' + i + '">' +
+        '<span class="cat-tag' + customCls + '" onclick="openCatEditor(event,\'' + escAttr(t.key) + '\',' + i + ',\'' + escAttr(t.category) + '\')">' +
+          escHtml(t.category) + ' <span class="pencil">✎</span>' +
+        '</span>' +
+      '</td>' +
+      '<td class="tx-amt ' + (isCredit ? 'credit' : 'debit') + '">' +
+        (isCredit ? '+' : '–') + fmtAmt(Math.abs(t.amount)) +
+      '</td>' +
+    '</tr>';
+  }
+  if (sorted.length > shownCount) {
+    html += '<tr class="more-row"><td colspan="4"><button class="more-btn" onclick="showMoreTxs()">עוד (' + (sorted.length - shownCount) + ' נותרו)</button></td></tr>';
+  }
+  document.getElementById('tx-body').innerHTML = html;
+}
+
+function showMoreTxs() { shownCount += PAGE_SIZE; renderTxs(applyFilters(getViewTxs())); }
+
+// ─── עורך קטגוריות ───────────────────────────────────────────────────────────
+function openCatEditor(ev, key, rowIdx, currentCat) {
+  ev.stopPropagation();
+  if (openDrop) { openDrop.remove(); openDrop = null; }
+  var cell = document.getElementById('cc' + rowIdx);
+  var dd = document.createElement('div'); dd.className = 'cat-dropdown';
+  var html = '';
+  for (var i = 0; i < ALL_CATS.length; i++) {
+    var c = ALL_CATS[i], isCur = c === currentCat ? ' cur' : '', check = c === currentCat ? ' ✓' : '';
+    html += '<div class="cat-option' + isCur + '" onclick="setCatOverride(event,\'' + escAttr(key) + '\',\'' + escAttr(c) + '\')">' + escHtml(c) + check + '</div>';
+  }
+  dd.innerHTML = html; cell.appendChild(dd); openDrop = dd;
+  requestAnimationFrame(function() {
+    var rect = dd.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 20) { dd.style.top = 'auto'; dd.style.bottom = 'calc(100% + 4px)'; }
+  });
+}
+
+function setCatOverride(ev, key, newCat) {
+  ev.stopPropagation();
+  for (var i = 0; i < allTx.length; i++) { if (allTx[i].key === key) allTx[i].category = newCat; }
+  catOverrides[key] = newCat;
+  persistOverrides();
+  pushCategoriesToJSONBin();
+  if (openDrop) { openDrop.remove(); openDrop = null; }
+  renderDashboard(getViewTxs());
+}
+
+document.addEventListener('click', function() { if (openDrop) { openDrop.remove(); openDrop = null; } });
+
+// ─── JSONBin סנכרון ───────────────────────────────────────────────────────────
+function setSyncStatus(msg, state) {
+  var el = document.getElementById('sync-status'); if (!el) return;
+  el.textContent = msg; el.className = 'sync-status' + (state ? ' ' + state : '');
+}
+
+function pushCategoriesToJSONBin() {
+  if (JB_BIN === 'JSONBIN_BIN_ID') return;
+  setSyncStatus('שומר…', '');
+  fetch('https://api.jsonbin.io/v3/b/' + JB_BIN, {
+    method: 'PUT',
+    headers: { 'X-Access-Key': JB_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(catOverrides)
+  })
+  .then(function(r) { if (!r.ok) throw new Error(r.status); setSyncStatus('נשמר ✓', 'ok'); setTimeout(function() { setSyncStatus('', ''); }, 3000); })
+  .catch(function() { setSyncStatus('שגיאת שמירה', 'err'); });
+}
+
+// ─── איפוס ────────────────────────────────────────────────────────────────────
+function doReset() {
+  try { localStorage.removeItem(TX_STORE_KEY); } catch(e) {}
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('upload-section').style.display = 'flex';
+  document.getElementById('date-controls').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  allTx = []; activeCat = 'הכל'; activeDir = 'all'; activeSearch = ''; shownCount = PAGE_SIZE;
+}
+
+// ─── עזרים ────────────────────────────────────────────────────────────────────
+function fmtAmt(n) {
+  return '₪' + Math.abs(n).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+function sortEntries(obj) { return Object.keys(obj).map(function(k) { return [k, obj[k]]; }).sort(function(a,b) { return b[1]-a[1]; }); }
+</script>
+</body>
+</html>
