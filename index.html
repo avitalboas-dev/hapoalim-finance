@@ -508,7 +508,7 @@ function parseExcel(buffer) {
       else if (forWhat) desc += ' — ' + forWhat;
 
       var dir = amount > 0 ? 'in' : 'out';
-      var key = op.toLowerCase().trim() + '|' + dir;
+      var key = desc.toLowerCase().trim() + '|' + dir;
       var category = catOverrides[key] || guessCategory(op, details);
 
       txs.push({ date: dateStr, desc: desc, op: op, amount: amount, category: category, currency: 'ILS', key: key });
