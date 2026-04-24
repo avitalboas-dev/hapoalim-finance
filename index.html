@@ -367,7 +367,7 @@ const ALL_CATS = [
   'בריאות','ילדים','בית','הכנסה','משכורת','חיסכון','בידור','נסיעות','אשראי','פנסיה','ביטוח','אחר'
 ];
 const STORE_KEY    = 'hapoalim_cat_v1';
-const TX_STORE_KEY = 'hapoalim_tx_v1';
+const TX_STORE_KEY = 'hapoalim_tx_v2';
 const PAGE_SIZE    = 50;
 const JB_BIN = '69ea51e036566621a8e4720e';
 const JB_KEY = '$2a$10$TbGux.P1oGnU9iKotg.vQ.xn0C34/DERAb..0AuacbKfF6S53IP9y';
@@ -892,6 +892,7 @@ function renderTxs(txs) {
   if (q && countEl) { countEl.textContent = sorted.length === 0 ? 'אין תוצאות' : sorted.length + ' תוצאות'; countEl.style.display = 'block'; }
   else if (countEl) { countEl.style.display = 'none'; }
 
+  var _visRows = visible;
   var html = '';
   for (var i = 0; i < visible.length; i++) {
     var t = visible[i];
@@ -901,7 +902,7 @@ function renderTxs(txs) {
       '<td class="tx-date">' + t.date.slice(0,10) + '</td>' +
       '<td class="tx-desc">' + highlight(t.desc, q) + '</td>' +
       '<td class="cat-cell" id="cc' + i + '">' +
-        '<span class="cat-tag' + customCls + '" onclick="openCatEditor(event,\'' + escAttr(t.key) + '\',' + i + ',\'' + escAttr(t.category) + '\')">' +
+        '<span class="cat-tag' + customCls + '" data-row="' + i + '">' +
           escHtml(t.category) + ' <span class="pencil">✎</span>' +
         '</span>' +
       '</td>' +
@@ -913,23 +914,36 @@ function renderTxs(txs) {
   if (sorted.length > shownCount) {
     html += '<tr class="more-row"><td colspan="4"><button class="more-btn" onclick="showMoreTxs()">עוד (' + (sorted.length - shownCount) + ' נותרו)</button></td></tr>';
   }
-  document.getElementById('tx-body').innerHTML = html;
+  var tbody = document.getElementById('tx-body');
+  tbody.innerHTML = html;
+  tbody.querySelectorAll('.cat-tag[data-row]').forEach(function(span) {
+    span.addEventListener('click', function(ev) {
+      ev.stopPropagation();
+      var rowIdx = parseInt(span.getAttribute('data-row'));
+      var t = _visRows[rowIdx];
+      openCatEditor(ev, t.key, rowIdx, t.category);
+    });
+  });
 }
 
 function showMoreTxs() { shownCount += PAGE_SIZE; renderTxs(applyFilters(getViewTxs())); }
 
 // ─── עורך קטגוריות ───────────────────────────────────────────────────────────
 function openCatEditor(ev, key, rowIdx, currentCat) {
-  ev.stopPropagation();
   if (openDrop) { openDrop.remove(); openDrop = null; }
   var cell = document.getElementById('cc' + rowIdx);
   var dd = document.createElement('div'); dd.className = 'cat-dropdown';
-  var html = '';
   for (var i = 0; i < ALL_CATS.length; i++) {
-    var c = ALL_CATS[i], isCur = c === currentCat ? ' cur' : '', check = c === currentCat ? ' ✓' : '';
-    html += '<div class="cat-option' + isCur + '" onclick="setCatOverride(event,\'' + escAttr(key) + '\',\'' + escAttr(c) + '\')">' + escHtml(c) + check + '</div>';
+    (function(c) {
+      var isCur = c === currentCat;
+      var opt = document.createElement('div');
+      opt.className = 'cat-option' + (isCur ? ' cur' : '');
+      opt.textContent = c + (isCur ? ' ✓' : '');
+      opt.addEventListener('click', function(e) { setCatOverride(e, key, c); });
+      dd.appendChild(opt);
+    })(ALL_CATS[i]);
   }
-  dd.innerHTML = html; cell.appendChild(dd); openDrop = dd;
+  cell.appendChild(dd); openDrop = dd;
   requestAnimationFrame(function() {
     var rect = dd.getBoundingClientRect();
     if (rect.bottom > window.innerHeight - 20) { dd.style.top = 'auto'; dd.style.bottom = 'calc(100% + 4px)'; }
